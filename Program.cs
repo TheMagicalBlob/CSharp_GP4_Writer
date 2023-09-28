@@ -12,6 +12,8 @@ namespace CSGP4POC {
     internal class Program {
         // This Is My First Time Making An XML, I Might Do Dumb Shit
 
+        // TODO: 
+        // - figure out pfs compression bs for certain file formats
 
        /*
          
@@ -42,7 +44,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.6
+        static void Main(string[] args) { // ver 0.7
             string[] RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
 
 
@@ -50,12 +52,12 @@ namespace CSGP4POC {
             byte[] BufferArray;
             int chunk_count, scenario_count, default_id;
             int[] scenario_types, scenario_chunk_range, initial_chunk_count;
-            string app_ver, version, content_id, title_id = "CUSA12345", passcode = "00000000000000000000000000000000", category = "?";
-            string[] chunk_labels, parameter_labels, scenario_labels;
+            string app_ver = "", version = "", content_id, title_id = "CUSA12345", passcode = "00000000000000000000000000000000", category = "?";
+            string[] chunk_labels, parameter_labels, scenario_labels, file_paths, subdirectories;
             var TimeStamp = $"{DateTime.Now.GetDateTimeFormats()[78]}";
 
             // Base Xml And XmlDeclaration
-            XmlElement chunk; XmlElement scenario;
+            XmlElement chunk, scenario, file, dir, subdir;
             var GP4 = new XmlDocument();
             var Declaration = GP4.CreateXmlDeclaration("1.1", "utf-8", "yes");
 
@@ -227,20 +229,37 @@ namespace CSGP4POC {
                                 break;
                         }
                     }
+            } 
+
+            ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\
+            ///--     Read Project Files And Directories     --\\\ this part could use some work
+            ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\
+            DirectoryInfo directoryInfo = new DirectoryInfo(args[0]);
+
+            FileInfo[] file_info = directoryInfo.GetFiles(".", SearchOption.AllDirectories); // How The Fuck Does This Find The Keystone?
+            DirectoryInfo[] directory_info = directoryInfo.GetDirectories(".", SearchOption.AllDirectories);
+
+            file_paths = new string[file_info.Length];
+            for(int file_index = 0; file_index < file_info.Length - 1; file_index++) {
+                file_paths[file_index] = file_info[file_index].FullName;
             }
 
+            subdirectories = new string[directory_info.Length];
+            for(int folder_index = 0; folder_index < directory_info.Length - 1; folder_index++) {
+                subdirectories[folder_index] = directory_info[folder_index].FullName;
+            }
 
             ///////////////////////\\\\\\\\\\\\\\\\\\\\\\
             ///--     Create Base .gp4 Elements     --\\\
             ///////////////////////\\\\\\\\\\\\\\\\\\\\\\
-            var RootNode = GP4.CreateElement("psproject");
-                RootNode.SetAttribute("fmt", "GP4");
-                RootNode.SetAttribute("version", "1000");
+            var psproject = GP4.CreateElement("psproject");
+                psproject.SetAttribute("fmt", "gp4");
+                psproject.SetAttribute("version", "1000");
 
             var volume = GP4.CreateElement("volume");
 
             var volume_type = GP4.CreateElement("volume_type");
-                volume_type.InnerText = $"ps4_{(category == "gd" ? "pkg_app" : "patch_pkg")}";
+                volume_type.InnerText = $"pkg_{(category == "gd" ? "ps4_app" : "ps4_patch")}";
             
             var volume_id = GP4.CreateElement("volume_id");
                 volume_id.InnerText = "PS4VOLUME";
@@ -253,12 +272,27 @@ namespace CSGP4POC {
                 package.SetAttribute("passcode", passcode);
                 package.SetAttribute("storage_type", (category == "gp" ? "digital25" : "digital50"));
                 package.SetAttribute("app_type", "full");
+                if (category == "gp")
+                package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}");
 
             var chunk_info = GP4.CreateElement("chunk_info");
                 chunk_info.SetAttribute("chunk_count", $"{chunk_count}");
                 chunk_info.SetAttribute("scenario_count", $"{scenario_count}");
 
+
             var chunks = GP4.CreateElement("chunks");
+            for(int chunk_id = 0; chunk_id < chunk_count; chunk_id++) {
+                chunk = GP4.CreateElement("chunk");
+                chunk.SetAttribute("id", $"{chunk_id}");
+                if(chunk_labels[chunk_id] == "") {
+                    Console.WriteLine($"Chunk Label #{chunk_id} Was Null, I Hope This Fix Works For Every Game...");
+                    chunk.SetAttribute("label", $"Chunk #{chunk_id}");
+                }
+                else
+                chunk.SetAttribute("label", $"{chunk_labels[chunk_id]}");
+                chunks.AppendChild(chunk);
+            }
+
 
             var scenarios = GP4.CreateElement("scenarios");
                 scenarios.SetAttribute("default_id", $"{default_id}");
@@ -274,30 +308,58 @@ namespace CSGP4POC {
             }
 
 
+            var files = GP4.CreateElement("files");
+
+            for(int path_index = 0; path_index < file_paths.Length - 1; path_index++) {
+                file = GP4.CreateElement("file");
+                file.SetAttribute("targ_path", (file_paths[path_index].Replace(args[0] + "\\", string.Empty)).Replace('\\', '/'));
+                file.SetAttribute("orig_path", file_paths[path_index]);
+                if (false)
+                file.SetAttribute("pfs_compression", "enabled");
+                if (false)
+                file.SetAttribute("chunks", file_paths[path_index]);
+                files.AppendChild(file);
+            }
+
+
+            var rootdir = GP4.CreateElement("rootdir");
+
+            for(int path_index = 0; path_index < subdirectories.Length - 1; path_index++) {
+                dir = GP4.CreateElement("dir");
+                var dir_name = subdirectories[path_index].Replace(args[0] + "\\", string.Empty);
+                if(dir_name.Contains('\\')) {
+                    //dir.SetAttribute("targ_name", dir_name.Remove(dir_name.LastIndexOf(@"\")));
+
+                    subdir = GP4.CreateElement("dir");
+                    subdir.SetAttribute("targ_name", dir_name.Substring(dir_name.LastIndexOf('\\') + 1));
+
+                    dir.AppendChild(subdir);
+                }
+                else
+                dir.SetAttribute("targ_name", dir_name.Replace(args[0] + "\\", string.Empty));
+                rootdir.AppendChild(dir);
+            }
 
             ////////////////////\\\\\\\\\\\\\\\\\\\\
             ///--     Build .gp4 Structure     --\\\
             ////////////////////\\\\\\\\\\\\\\\\\\\\
+            var comment = GP4.CreateComment("File Produced By gengp4 Alternative (TheMagicalBlob)");
             GP4.AppendChild(Declaration);
-            GP4.AppendChild(RootNode);
-            RootNode.AppendChild(volume);
+            GP4.AppendChild(psproject);
+            psproject.AppendChild(volume);
+            psproject.AppendChild(files);
+            psproject.AppendChild(rootdir);
             volume.AppendChild(volume_type);
             volume.AppendChild(volume_id);
             volume.AppendChild(volume_ts);
             volume.AppendChild(package);
             volume.AppendChild(chunk_info);
             chunk_info.AppendChild(chunks);
-            for(int chunk_id = 0; chunk_id < chunk_count; chunk_id++) {
-                chunk = GP4.CreateElement("chunk");
-                chunk.SetAttribute("id", $"{chunk_id}");
-                chunk.SetAttribute("label", $"{chunk_labels[chunk_id]}");
-
-                chunks.AppendChild(chunk);
-            }
             chunk_info.AppendChild(scenarios);
+            //GP4.AppendChild(comment);
 
             // gee, I wonder what this does
-            GP4.Save($@"C:\Users\Blob\Desktop\_{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
+            GP4.Save($@"C:\Users\Blob\Desktop\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
         }
     }
 }
