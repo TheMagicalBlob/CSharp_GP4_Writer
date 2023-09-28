@@ -13,11 +13,14 @@ namespace CSGP4POC {
         // This Is My First Time Making An XML, I Might Do Dumb Shit
 
 
-        /* playgo-chunks.dat
-         0x0 - 0x8: Head
+       /*
+         
+        playgo-chunks.dat
+         0x00 - 0x8: Head
          0x0A: Chunk Count
          0x10: File End
          0x0E: Scenario Count
+         0xE0: Scenario Data Section(s)
          0x14: Default ID
 
          0xD0: chunk label beggining
@@ -25,32 +28,33 @@ namespace CSGP4POC {
          0xD8: chunk label end (Padded)
          0xE0: Senario 1 type (*0xE0 + 0x20 For Each Scenario After?)
          0xF0: Scenario Labels
-        */
-
-        /* param.sfo
-         0x0 - 0x8: Head
-         0x8 - Param Labels
-         0xC - Param Values
+         
+        param.sfo
+         0x00 - 0x8: Head
+         0x08 - Param Labels
+         0x0C - Param Values
          0x10 - Param Count
             
          starting at 0x20:
          Param Offsets every 16 bytes
-         */
+        
+        */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.5
+        static void Main(string[] args) { // ver 0.5.1
             string[] RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
 
 
             // Main Variables
             byte[] DataBuffer;
-            byte chunk_count, scenario_count, default_id;
+            int chunk_count, scenario_count, default_id;
+            int[] scenario_types, initial_chunk_count, scenario_chunk_range;
             string app_ver, version, content_id, title_id = "CUSA12345", passcode = "00000000000000000000000000000000", category = "?";
             string[] ChunkLabelArray, ParamNameArray;
             var TimeStamp = $"{DateTime.Now.GetDateTimeFormats()[78]}";
 
             // Base Xml And XmlDeclaration
-            XmlElement chunk;
+            XmlElement chunk; XmlElement scenario;
             var GP4 = new XmlDocument();
             var Declaration = GP4.CreateXmlDeclaration("1.1", "utf-8", "yes");
 
@@ -71,48 +75,73 @@ namespace CSGP4POC {
 
 
             // Read playgo-chunks.dat And Param.sfo To Get Most Variables
-            using(var playgo_chunks_dat = File.OpenRead($@"{args[0]}\sce_sys\playgo-chunk.dat")) {
-                playgo_chunks_dat.Position = 0x0A;
-                chunk_count = (byte)playgo_chunks_dat.ReadByte();
+            using(var playgo = File.OpenRead($@"{args[0]}\sce_sys\playgo-chunk.dat")) {
+                // Read Chunk Count
+                playgo.Position = 0x0A;
+                chunk_count = (byte)playgo.ReadByte();
                 ChunkLabelArray = new string[chunk_count];
 
-                playgo_chunks_dat.Position = 0x0E;
-                scenario_count = (byte)playgo_chunks_dat.ReadByte();
+                // Read Scenario Count
+                playgo.Position = 0x0E;
+                scenario_count = (byte)playgo.ReadByte();
+                scenario_types = new int[scenario_count];
+                initial_chunk_count = new int[scenario_count];
+                scenario_chunk_range = new int[scenario_count];
 
-                playgo_chunks_dat.Position = 0x14;
-                default_id = (byte)playgo_chunks_dat.ReadByte();
+                // Read Default Scenario Id
+                playgo.Position = 0x14;
+                default_id = (byte)playgo.ReadByte();
 
+                // Read Content ID Here Instead Of The .sfo Because Meh, User Has Bigger Issues If Those Aren't the Same
                 DataBuffer = new byte[36];
-                playgo_chunks_dat.Position = 0x40;
-                playgo_chunks_dat.Read(DataBuffer, 0, 36);
+                playgo.Position = 0x40;
+                playgo.Read(DataBuffer, 0, 36);
                 content_id = Encoding.UTF8.GetString(DataBuffer);
-
 
                 // Get Chunk Label Start Address From Pointer
                 DataBuffer = new byte[4];
-                playgo_chunks_dat.Position = 0xD0;
-                playgo_chunks_dat.Read(DataBuffer, 0, 4);
+                playgo.Position = 0xD0;
+                playgo.Read(DataBuffer, 0, 4);
                 var ChunkLabelPointer = BitConverter.ToInt32(DataBuffer, 0);
+
                 // Get Length Of Chunk Label Byte Array
-                playgo_chunks_dat.Position = 0xD4;
-                playgo_chunks_dat.Read(DataBuffer, 0, 4);
+                playgo.Position = 0xD4;
+                playgo.Read(DataBuffer, 0, 4);
                 var ChunkLabelArrayLength = BitConverter.ToInt32(DataBuffer, 0);
+
+                // Load Scenario(s)
+                playgo.Position = 0xE0;
+                playgo.Read(DataBuffer, 0, 4);
+                var scenarioPointer = BitConverter.ToInt32(DataBuffer, 0);
+                for(int scenario_index = 0; scenario_index < scenario_count - 1; scenario_index++) {
+                    // Get Scenario Type
+                    playgo.Position = scenarioPointer;
+                    scenario_types[scenario_index] = (byte)playgo.ReadByte();
+
+                    // Get Scenario initial_chunk_count
+                    playgo.Position = (scenarioPointer + 0x14);
+                    playgo.Read(DataBuffer, 2, 2);
+                    initial_chunk_count[scenario_index] = BitConverter.ToInt16(DataBuffer, 2);
+                    playgo.Read(DataBuffer, 2, 2);
+                    scenario_chunk_range[scenario_index] = BitConverter.ToInt16(DataBuffer, 2);
+                    scenarioPointer += 0x20;
+                }
 
                 // Load Chunk Labels
                 DataBuffer = new byte[ChunkLabelArrayLength];
-                playgo_chunks_dat.Position = ChunkLabelPointer;
-                playgo_chunks_dat.Read(DataBuffer, 0, DataBuffer.Length);
+                playgo.Position = ChunkLabelPointer;
+                playgo.Read(DataBuffer, 0, DataBuffer.Length);
                 LoadParameterLabels(ChunkLabelArray);
             }
 
+            // Get Length Of Chunk Label String Array
             using(var sfo = File.OpenRead($@"{args[0]}\sce_sys\param.sfo")) {
-                // Get Length Of Chunk Label String Array
-                DataBuffer = new byte[4];
                 sfo.Position = 0x8;
+                DataBuffer = new byte[4];
                 sfo.Read(DataBuffer, 0, 4);
                 var ParamNameArrayPointer = BitConverter.ToInt32(DataBuffer, 0);
 
-                sfo.Position = 0xC;
+                sfo.Position = 0x0C;
                 sfo.Read(DataBuffer, 0, 4);
                 var ParamVariablesPointer = BitConverter.ToInt32(DataBuffer, 0);
 
@@ -202,6 +231,20 @@ namespace CSGP4POC {
                 chunk_info.SetAttribute("scenario_count", $"{scenario_count}");
 
             var chunks = GP4.CreateElement("chunks");
+
+            var scenarios = GP4.CreateElement("scenarios");
+                scenarios.SetAttribute("default_id", $"{default_id}");
+
+            for(int id = 0; id < scenario_count - 1; id++) {
+                scenario = GP4.CreateElement("scenario");
+                scenario.SetAttribute("id", $"{id}");
+                scenario.SetAttribute("type", $"{id}");
+                scenario.SetAttribute("initial_chunk_count", $"{initial_chunk_count[id]}");
+                scenario.SetAttribute("label", $"{id}");
+                scenario.InnerText = $"0-{scenario_chunk_range[id]}";
+            }
+
+
 
             // Build .gp4 Structure
             GP4.AppendChild(Declaration);
