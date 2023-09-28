@@ -6,13 +6,31 @@ using System.Text;
 using System.Xml;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
+using System.Reflection;
 
 namespace CSGP4POC {
     internal class Program {
         // This Is My First Time Making An XML, I Might Do Dumb Shit
-        
+
+
+        /* playgo-chunks.dat
+         0x0 - 0x8: Head
+         0x0A: Chunk Count
+         0x10: File End
+         0x0E: Scenario Count
+         0x14: Default ID
+
+         0xD0: chunk label beggining
+         0xD8: chunk label end
+         0xE0: Senario 1 type (*0xE0 + 0x20 For Each Scenario After?)
+         0xF0: Scenario Labels
+        */
+
+
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.2
+        static void Main(string[] args) { // ver 0.3
+            void WL(object s) => Console.WriteLine(s);
+            void R() => Console.Read();
 
             // Main Variables
             byte chunk_count, scenario_count, default_id;
@@ -25,11 +43,21 @@ namespace CSGP4POC {
             var GP4 = new XmlDocument();
             var Declaration = GP4.CreateXmlDeclaration("1.1", "utf-8", "yes");
 
-            StringBuilder ReadLabel() {
+            void LoadChunkLabels() {
+                int byteIndex = 0;
+                StringBuilder Builder;
 
+                for(int stringIndex = 0; stringIndex < chunk_count; stringIndex++) {
+                    Builder = new StringBuilder();
 
-                return new String();
+                    while(DataBuffer[byteIndex] != 0)
+                        Builder.Append(Encoding.UTF8.GetString(new byte[] { DataBuffer[byteIndex++] })); // Just Take A Byte, You Fussy Prick
+
+                    byteIndex++;
+                    ChunkLabelArray[stringIndex] = Builder.ToString();
+                }
             }
+
 
             // Read playgo-chunks.dat And Param.sfo To Get Most Variables
             using(var playgo_chunks_dat = File.OpenRead($@"{args[0]}\sce_sys\playgo-chunk.dat")) {
@@ -62,11 +90,10 @@ namespace CSGP4POC {
                 // Load Chunk Labels
                 DataBuffer = new byte[EndOfChunkLabels - ChunkLabelPointer];
                 playgo_chunks_dat.Position = ChunkLabelPointer;
-                for(int i = 0; i < chunk_count; i++) {
-                    playgo_chunks_dat.Read(DataBuffer, 0, DataBuffer.Length);
-                    Console.WriteLine($"{DataBuffer.Length} {Encoding.UTF8.GetString(DataBuffer)}");
-                    Console.Read();
-                }
+                playgo_chunks_dat.Read(DataBuffer, 0, DataBuffer.Length);
+                LoadChunkLabels();
+
+
             }
             using(var param_sfo = File.OpenRead($@"{args[0]}\sce_sys\param.sfo")) {
 
@@ -98,7 +125,7 @@ namespace CSGP4POC {
             chunk_info.SetAttribute("scenario_count", $"{scenario_count}");
 
             var chunks = GP4.CreateElement("chunks");
-            var chunk = GP4.CreateElement("chunk");
+            XmlElement chunk;
 
             // Build .gp4 Structure
             GP4.AppendChild(Declaration);
@@ -111,10 +138,12 @@ namespace CSGP4POC {
             volume.AppendChild(chunk_info);
             chunk_info.AppendChild(chunks);
             for(int chunk_id = 0; chunk_id < chunk_count; chunk_id++) {
+                chunk = GP4.CreateElement("chunk");
                 chunk.SetAttribute("id", $"{chunk_id}");
-                chunk.SetAttribute("label", $"{chunk_id}");
+                chunk.SetAttribute("label", $"{ChunkLabelArray[chunk_id]}");
                 chunks.AppendChild(chunk);
             }
+
             // gee, I wonder what this does
             GP4.Save(@"C:\Users\Blob\Desktop\CUSA00557-Test.gp4");
         }
