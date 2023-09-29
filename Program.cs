@@ -45,7 +45,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.7.2
+        static void Main(string[] args) { // ver 0.8 - Functional, Needs Cleaning & More Testing
             // Debug
             bool Output = false;
             void W(object o) { Console.WriteLine(o); Output = true; } // Only Wait On Close If Anything's Actually Been Written
@@ -337,17 +337,30 @@ namespace CSGP4POC {
             //////////////////////\\\\\\\\\\\\\\\\\\\\\\
             ///--     rootdir Directory Nesing     --\\\
             //////////////////////\\\\\\\\\\\\\\\\\\\\\\
+            
             var rootdir = GP4.CreateElement("rootdir");
-            foreach(string folder in Directory.GetDirectories(args[0])) {
-                dir = GP4.CreateElement("dir");
-                dir.SetAttribute("vdir", folder.Replace(args[0] + "\\", string.Empty));
-                rootdir.AppendChild(dir);
-                if(Directory.GetDirectories(folder) != null) {
 
+            void AppendSubfolder(string _dir, XmlElement node) {
+                foreach(string folder in Directory.GetDirectories(_dir)) {
+                    subdir = GP4.CreateElement("dir");
+                    subdir.SetAttribute("targ_name", folder.Substring(folder.LastIndexOf('\\') + 1));
+                    node.AppendChild(subdir);
+                    if(Directory.GetDirectories(folder).Length > 0) AppendSubfolder(folder, subdir);
+                    index++;
                 }
-                index++;
             }
 
+            void AppendFolder(string _dir) {
+                foreach(string folder in Directory.GetDirectories(_dir)) {
+                    dir = GP4.CreateElement("dir");
+                    dir.SetAttribute("targ_name", folder.Substring(folder.LastIndexOf('\\') + 1));
+                    rootdir.AppendChild(dir);
+                    if(Directory.GetDirectories(folder).Length > 0) AppendSubfolder(folder, dir);
+                    index++;
+                }
+            }
+
+            AppendFolder(APP_FOLDER);
 
             /*
             for(int path_index = 0; path_index < subdirectories.Length - 1; path_index++) {
