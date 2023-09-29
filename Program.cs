@@ -7,6 +7,7 @@ using System.Xml;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using System.Reflection;
+using System.Data;
 
 namespace CSGP4POC {
     internal class Program {
@@ -44,17 +45,24 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.7
-            string[] RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
+        static void Main(string[] args) { // ver 0.7.1
+            // Debug
+            bool Output = false;
+            void W(object o) { Console.WriteLine(o); Output = true; } // Only Wait On Close If Anything's Actually Been Written
+            void Read() => Console.Read();
 
+            string APP_FOLDER = args?[0];
+            if(APP_FOLDER == "") Environment.Exit(0);
 
             // Main Variables
+            var TimeStamp = $"{DateTime.Now.GetDateTimeFormats()[78]}";
+            var miliseconds = DateTime.Now.Millisecond; // Format Sony Used Doesn't Have Miliseconds, But I Still Wanna Track It For Now
+            string[] RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
             byte[] BufferArray;
-            int chunk_count, scenario_count, default_id;
+            int chunk_count, scenario_count, default_id, index = 0;
             int[] scenario_types, scenario_chunk_range, initial_chunk_count;
             string app_ver = "", version = "", content_id, title_id = "CUSA12345", passcode = "00000000000000000000000000000000", category = "?";
             string[] chunk_labels, parameter_labels, scenario_labels, file_paths, subdirectories;
-            var TimeStamp = $"{DateTime.Now.GetDateTimeFormats()[78]}";
 
             // Base Xml And XmlDeclaration
             XmlElement chunk, scenario, file, dir, subdir;
@@ -77,7 +85,9 @@ namespace CSGP4POC {
             }
 
 
-            // Read playgo-chunks.dat And Param.sfo To Get Most Variables
+            //////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+            ///--    Parse playgo-chunks.dat And Param.sfo To Get Most Variables    --\\\
+            //////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             using(var playgo = File.OpenRead($@"{args[0]}\sce_sys\playgo-chunk.dat")) {
                 // Read Chunk Count
                 playgo.Position = 0x0A;
@@ -285,7 +295,7 @@ namespace CSGP4POC {
                 chunk = GP4.CreateElement("chunk");
                 chunk.SetAttribute("id", $"{chunk_id}");
                 if(chunk_labels[chunk_id] == "") {
-                    Console.WriteLine($"Chunk Label #{chunk_id} Was Null, I Hope This Fix Works For Every Game...");
+                    W($"Chunk Label #{chunk_id} Was Null, I Hope This Fix Works For Every Game...");
                     chunk.SetAttribute("label", $"Chunk #{chunk_id}");
                 }
                 else
@@ -309,26 +319,73 @@ namespace CSGP4POC {
 
 
             var files = GP4.CreateElement("files");
-
             for(int path_index = 0; path_index < file_paths.Length - 1; path_index++) {
                 file = GP4.CreateElement("file");
                 file.SetAttribute("targ_path", (file_paths[path_index].Replace(args[0] + "\\", string.Empty)).Replace('\\', '/'));
                 file.SetAttribute("orig_path", file_paths[path_index]);
-                if (false)
-                file.SetAttribute("pfs_compression", "enabled");
-                if (false)
-                file.SetAttribute("chunks", file_paths[path_index]);
+                /* 
+                   if (FileUsedPfsComporession(file_paths[path_index]))
+                   file.SetAttribute("pfs_compression", "enabled");
+                   if (FileWantsChunkyBeefStew(file_paths[path_index]))
+                   file.SetAttribute("chunks", file_paths[path_index]);
+                */
                 files.AppendChild(file);
             }
 
 
-            var rootdir = GP4.CreateElement("rootdir");
 
+            //////////////////////\\\\\\\\\\\\\\\\\\\\\\
+            ///--     rootdir Directory Nesing     --\\\
+            //////////////////////\\\\\\\\\\\\\\\\\\\\\\
+            var rootdir = GP4.CreateElement("rootdir");
+            foreach(string folder in Directory.GetDirectories(args[0])) {
+                dir = GP4.CreateElement("dir");
+                dir.SetAttribute("vdir", file_paths[index].Replace(args[0] + "\\", string.Empty));
+                rootdir.AppendChild(dir);
+                if(Directory.GetDirectories(folder) != null) {
+
+                }
+                index++;
+            }
+
+
+            /*
             for(int path_index = 0; path_index < subdirectories.Length - 1; path_index++) {
                 dir = GP4.CreateElement("dir");
                 var dir_name = subdirectories[path_index].Replace(args[0] + "\\", string.Empty);
+
+                // Build rootdir subdirectory element
                 if(dir_name.Contains('\\')) {
-                    //dir.SetAttribute("targ_name", dir_name.Remove(dir_name.LastIndexOf(@"\")));
+                    W($"\nDirectory {dir_name} Has Subdirectory");
+
+                    var subdirectory_depth = 1;
+                    foreach(char c in dir_name) if (c == '\\') subdirectory_depth++;
+                    W($"Subdirectory_depth {subdirectory_depth}");
+                    
+                    string[] subdirectory_array = new string[subdirectory_depth];
+                    BufferArray = Encoding.UTF8.GetBytes(dir_name);
+
+
+                    int byteIndex = 0;
+                    StringBuilder Builder;
+                    for(int stringIndex = 0; stringIndex < subdirectory_array.Length - 1; stringIndex++) {
+                        Builder = new StringBuilder();
+
+                        while(BufferArray[byteIndex] != 0x5C)
+                            Builder.Append(Encoding.UTF8.GetString(new byte[] { BufferArray[byteIndex++] })); // Just Take A Byte, You Fussy Prick
+
+                        byteIndex++;
+                        subdirectory_array[stringIndex] = Builder.ToString();
+                        W($"New Subdir: {subdirectory_array[stringIndex]} (#{stringIndex}/{subdirectory_depth})");
+                    }
+
+                    for(int i = 0; i < subdirectory_depth; i++) {
+                        subdir = GP4.CreateElement("dir");
+                        subdir.SetAttribute("targ_name", dir_name.Substring(dir_name.LastIndexOf('\\') + 1));
+                        dir.AppendChild(subdir);
+                    }
+
+                    dir.SetAttribute("targ_name", dir_name.Remove(dir_name.LastIndexOf(@"\")));
 
                     subdir = GP4.CreateElement("dir");
                     subdir.SetAttribute("targ_name", dir_name.Substring(dir_name.LastIndexOf('\\') + 1));
@@ -336,14 +393,15 @@ namespace CSGP4POC {
                     dir.AppendChild(subdir);
                 }
                 else
-                dir.SetAttribute("targ_name", dir_name.Replace(args[0] + "\\", string.Empty));
+                    dir.SetAttribute("targ_name", dir_name.Replace(args[0] + "\\", string.Empty));
+
                 rootdir.AppendChild(dir);
             }
+            */
 
             ////////////////////\\\\\\\\\\\\\\\\\\\\
             ///--     Build .gp4 Structure     --\\\
             ////////////////////\\\\\\\\\\\\\\\\\\\\
-            var comment = GP4.CreateComment("File Produced By gengp4 Alternative (TheMagicalBlob)");
             GP4.AppendChild(Declaration);
             GP4.AppendChild(psproject);
             psproject.AppendChild(volume);
@@ -356,10 +414,17 @@ namespace CSGP4POC {
             volume.AppendChild(chunk_info);
             chunk_info.AppendChild(chunks);
             chunk_info.AppendChild(scenarios);
+            //var comment = GP4.CreateComment($"File Finished at {DateTime.Now.GetDateTimeFormats()[78]} By gengp4 Alternative (TheMagicalBlob)");
             //GP4.AppendChild(comment);
 
+#if DEBUG
+            var stamp = GP4.CreateComment($"{DateTime.Parse(TimeStamp).Minute}:{DateTime.Parse(TimeStamp).Second}.{miliseconds} => {DateTime.Now.Minute}:{DateTime.Now.Second}.{DateTime.Now.Millisecond}");
+            GP4.AppendChild(stamp);
+#endif
             // gee, I wonder what this does
             GP4.Save($@"C:\Users\Blob\Desktop\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
+
+            if (Output) Read();
         }
     }
 }
