@@ -45,7 +45,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.7.1
+        static void Main(string[] args) { // ver 0.7.2
             // Debug
             bool Output = false;
             void W(object o) { Console.WriteLine(o); Output = true; } // Only Wait On Close If Anything's Actually Been Written
@@ -340,7 +340,7 @@ namespace CSGP4POC {
             var rootdir = GP4.CreateElement("rootdir");
             foreach(string folder in Directory.GetDirectories(args[0])) {
                 dir = GP4.CreateElement("dir");
-                dir.SetAttribute("vdir", file_paths[index].Replace(args[0] + "\\", string.Empty));
+                dir.SetAttribute("vdir", folder.Replace(args[0] + "\\", string.Empty));
                 rootdir.AppendChild(dir);
                 if(Directory.GetDirectories(folder) != null) {
 
