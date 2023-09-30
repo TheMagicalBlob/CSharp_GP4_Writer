@@ -45,7 +45,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.9.6 - Added ReadLine In Case Of No Args
+        static void Main(string[] args) { // ver 0.9.8
                                           // Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
                                           
 #if DEBUG
@@ -80,40 +80,46 @@ namespace CSGP4POC {
             // Some Files Or Formats Aren't Supposed To Be Included. I Doubt I Got Lucky And My Game Happened To Have Them All, So I'm Probably Missing Shit
             bool FileShouldBeExcluded(string filepath) {
 
+                if(!filepath.Contains('.')) {
+                    W(filepath);
+                    return false;
+                }
+
                 // To Exclude certain Files From sce_sys while not excluding them entirely
                 var filename = filepath.Remove(filepath.LastIndexOf(".")).Substring(filepath.LastIndexOf('\\') + 1);
+
+
 
                 string[] blacklist = new string[] {
                   // Drunk Canadian Guy
                     $"sce_sys\\{filename}.dds",
                     "right.sprx",
-                    "sce_sys/origin-deltainfo.dat",
-                    "sce_sys/psreserved.dat",
-                    "sce_sys/playgo-chunk.dat",
-                    "sce_sys/playgo-chunk.sha",
-                    "sce_sys/playgo-manifest.xml",
-
+                    @"sce_sys\origin-deltainfo.dat",
+                    @"sce_sys\psreserved.dat",
+                    @"sce_sys\playgo-chunk",
+                    @"sce_sys\playgo-manifest.xml",
+                    @"sce_discmap.plt",
                   // Al Azif
-                    "sce_sys/.digests",
-                    "sce_sys/.entry_keys",
-                    "sce_sys/.image_key",
-                    "sce_sys/.unknown_0x21",
-                    "sce_sys/.general_digests",
-                    "sce_sys/.unknown_0xC0",
-                    "sce_sys/.metas",
-                    "sce_sys/.entry_names",
-                    "sce_sys/license.dat",
-                    "sce_sys/license.info",
-                    "sce_sys/selfinfo.dat",
-                    "sce_sys/imageinfo.dat",
-                    "sce_sys/target-deltainfo.dat",
-                    "sce_sys/pubtoolinfo.dat",
-                    "sce_sys/app/playgo-chunk.dat",
-                    "sce_sys/app/playgo-chunk.sha",
-                    "sce_sys/app/playgo-manifest.xml",
-                    "sce_sys/icon0.dds",
-                    "sce_sys/pic0.dds",
-                    "sce_sys/pic1.dds"
+                    @"sce_sys\.digests",
+                    @"sce_sys\.entry_keys",
+                    @"sce_sys\.image_key",
+                    @"sce_sys\.unknown_0x21",
+                    @"sce_sys\.general_digests",
+                    @"sce_sys\.unknown_0xC0",
+                    @"sce_sys\.metas",
+                    @"sce_sys\.entry_names",
+                    @"sce_sys\license.dat",
+                    @"sce_sys\license.info",
+                    @"sce_sys\selfinfo.dat",
+                    @"sce_sys\imageinfo.dat",
+                    @"sce_sys\target-deltainfo.dat",
+                    @"sce_sys\pubtoolinfo.dat",
+                    @"sce_sys\app\playgo-chunk.dat",
+                    @"sce_sys\app\playgo-chunk.sha",
+                    @"sce_sys\app\playgo-manifest.xml",
+                    @"sce_sys\icon0.dds",
+                    @"sce_sys\pic0.dds",
+                    @"sce_sys\pic1.dds"
                     //
                 };
 
@@ -221,6 +227,7 @@ namespace CSGP4POC {
             }
 
 
+
             ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             ///--    Parse param.sfo For Various Parameters    --\\\
             ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -295,12 +302,12 @@ namespace CSGP4POC {
                     }
             } 
 
+
             ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\
             ///--     Read Project Files And Directories     --\\\
             ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\
             DirectoryInfo directoryInfo = new DirectoryInfo(args[0]);
-
-            FileInfo[] file_info = directoryInfo.GetFiles(".", SearchOption.AllDirectories); // How The Fuck Does This Find The Keystone?
+            FileInfo[] file_info = directoryInfo.GetFiles(".", SearchOption.AllDirectories);
 
             file_paths = new string[file_info.Length];
             for(int file_index = 0; file_index < file_info.Length - 1; file_index++)
@@ -331,7 +338,8 @@ namespace CSGP4POC {
                 package.SetAttribute("storage_type", (category == "gp" ? "digital25" : "digital50"));
                 package.SetAttribute("app_type", "full");
                 if (category == "gp")
-                    package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}.pkg");
+                    package.SetAttribute("app_path", @"E:\PKG\UP9000-CUSA00552_00-THELASTOFUS00000-A0111-V0100.pkg");
+                  //package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}.pkg");
 
             var chunk_info = GP4.CreateElement("chunk_info");
                 chunk_info.SetAttribute("chunk_count", $"{chunk_count}");
@@ -342,12 +350,11 @@ namespace CSGP4POC {
             for(int chunk_id = 0; chunk_id < chunk_count; chunk_id++) {
                 chunk = GP4.CreateElement("chunk");
                 chunk.SetAttribute("id", $"{chunk_id}");
-                if(chunk_labels[chunk_id] == "") {
-                  //W($"Chunk Label #{chunk_id} Was Null, I Hope This Fix Works For Every Game...");
+
+                if(chunk_labels[chunk_id] == "") //  I Hope This Fix Works For Every Game...
                     chunk.SetAttribute("label", $"Chunk #{chunk_id}");
-                }
                 else
-                chunk.SetAttribute("label", $"{chunk_labels[chunk_id]}");
+                    chunk.SetAttribute("label", $"{chunk_labels[chunk_id]}");
                 chunks.AppendChild(chunk);
             }
 
@@ -368,6 +375,7 @@ namespace CSGP4POC {
 
             var files = GP4.CreateElement("files");
             for(int path_index = 0; path_index < file_paths.Length - 1; path_index++) {
+                if(FileShouldBeExcluded(file_paths[path_index])) goto Skip;
                 file = GP4.CreateElement("file");
                 file.SetAttribute("targ_path", (file_paths[path_index].Replace(args[0] + "\\", string.Empty)).Replace('\\', '/'));
                 file.SetAttribute("orig_path", file_paths[path_index]);
@@ -377,8 +385,8 @@ namespace CSGP4POC {
                    if (FileWantsChunkyBeefStew(file_paths[path_index]))
                    file.SetAttribute("chunks", file_paths[path_index]);
                 */
-                if (!FileShouldBeExcluded(file_paths[path_index]))
                 files.AppendChild(file);
+            Skip: { }
             }
 
 
@@ -408,6 +416,8 @@ namespace CSGP4POC {
                 index++;
             }
 
+
+
             ////////////////////\\\\\\\\\\\\\\\\\\\\
             ///--     Build .gp4 Structure     --\\\
             ////////////////////\\\\\\\\\\\\\\\\\\\\
@@ -423,14 +433,9 @@ namespace CSGP4POC {
             volume.AppendChild(chunk_info);
             chunk_info.AppendChild(chunks);
             chunk_info.AppendChild(scenarios);
-#if DEBUG
-            var stamp = GP4.CreateComment($"gengp4.exe Alternative {DateTime.Parse(TimeStamp).Minute}:{DateTime.Parse(TimeStamp).Second}.{miliseconds} => {DateTime.Now.Minute}:{DateTime.Now.Second}.{DateTime.Now.Millisecond}");
+            var stamp = GP4.CreateComment($"gengp4.exe Alternative. Time Taken For Build Process: {DateTime.Now.Minute - DateTime.Parse(TimeStamp).Minute}:{DateTime.Now.Second - DateTime.Parse(TimeStamp).Second}.{DateTime.Now.Millisecond - miliseconds}");
             GP4.AppendChild(stamp);
-#endif
-
-            // gee, I wonder what this does
             GP4.Save($@"C:\Users\Blob\Desktop\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
-
             if (Output) Read();
         }
     }
