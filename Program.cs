@@ -45,7 +45,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.9.2 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
+        static void Main(string[] args) { // ver 0.9.3 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
                                           // Debug
 #if DEBUG
             bool Output = false;
@@ -79,7 +79,37 @@ namespace CSGP4POC {
                 // To Exclude certain Files From sce_sys while not excluding them entirely
                 var filename = filepath.Remove(filepath.LastIndexOf(".")).Substring(filepath.LastIndexOf('\\') + 1);
 
-                string[] blacklist = new string[] { $"sce_sys\\{filename}.dds", "right.sprx", "origin-deltainfo.dat", "playgo-chunk", "playgo-manifest", "psreserved.dat" };
+                string[] blacklist = new string[] {
+                    $"sce_sys\\{filename}.dds",
+                    "right.sprx",
+                    "sce_sys/origin-deltainfo.dat",
+                    "sce_sys/psreserved.dat",
+                    "sce_sys/playgo-chunk.dat",
+                    "sce_sys/playgo-chunk.sha",
+                    "sce_sys/playgo-manifest.xml",
+                  // \/ (Al Azif)
+                    "sce_sys/.digests",
+                    "sce_sys/.entry_keys",
+                    "sce_sys/.image_key",
+                    "sce_sys/.unknown_0x21",
+                    "sce_sys/.general_digests",
+                    "sce_sys/.unknown_0xC0",
+                    "sce_sys/.metas",
+                    "sce_sys/.entry_names",
+                    "sce_sys/license.dat",
+                    "sce_sys/license.info",
+                    "sce_sys/selfinfo.dat",
+                    "sce_sys/imageinfo.dat",
+                    "sce_sys/target-deltainfo.dat",
+                    "sce_sys/pubtoolinfo.dat",
+                    "sce_sys/app/playgo-chunk.dat",
+                    "sce_sys/app/playgo-chunk.sha",
+                    "sce_sys/app/playgo-manifest.xml",
+                    "sce_sys/icon0.dds",
+                    "sce_sys/pic0.dds",
+                    "sce_sys/pic1.dds"
+                    //
+                    };
 
                 foreach(var blacklisted_file_or_folder in blacklist)
                 if(filepath.Contains(blacklisted_file_or_folder)) return true;
