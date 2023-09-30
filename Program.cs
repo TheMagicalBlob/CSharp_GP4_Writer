@@ -45,11 +45,13 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.8 - Functional, Needs Cleaning & More Testing
-            // Debug
+        static void Main(string[] args) { // ver 0.9 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
+                                          // Debug
+#if DEBUG
             bool Output = false;
             void W(object o) { Console.WriteLine(o); Output = true; } // Only Wait On Close If Anything's Actually Been Written
             void Read() => Console.Read();
+#endif
 
             string APP_FOLDER = args?[0];
             if(APP_FOLDER == "") Environment.Exit(0);
@@ -57,17 +59,27 @@ namespace CSGP4POC {
             // Main Variables
             var TimeStamp = $"{DateTime.Now.GetDateTimeFormats()[78]}";
             var miliseconds = DateTime.Now.Millisecond; // Format Sony Used Doesn't Have Miliseconds, But I Still Wanna Track It For Now
-            string[] RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
+
             byte[] BufferArray;
             int chunk_count, scenario_count, default_id, index = 0;
             int[] scenario_types, scenario_chunk_range, initial_chunk_count;
             string app_ver = "", version = "", content_id, title_id = "CUSA12345", passcode = "00000000000000000000000000000000", category = "?";
-            string[] chunk_labels, parameter_labels, scenario_labels, file_paths, subdirectories;
+            string[] chunk_labels, parameter_labels, scenario_labels, file_paths, subdirectories,
+            RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
 
             // Base Xml And XmlDeclaration
             XmlElement chunk, scenario, file, dir, subdir;
             var GP4 = new XmlDocument();
             var Declaration = GP4.CreateXmlDeclaration("1.1", "utf-8", "yes");
+
+            bool FileShouldBeExcluded(string filepath) {
+                string[] blacklist = new string[] { "pic0.dds", "pic1.dds", "icon0_00.dds", "icon0.dds", "right.sprx", "origin-deltainfo.dat", "playgo-chunk", "playgo-manifest", "psreserved.dat" };
+
+                foreach(var blacklisted_file_or_folder in blacklist)
+                if(filepath.Contains(blacklisted_file_or_folder)) return true;
+
+                return false;
+            }
 
             void LoadParameterLabels(string[] StringArray) {
                 int byteIndex = 0;
@@ -283,7 +295,7 @@ namespace CSGP4POC {
                 package.SetAttribute("storage_type", (category == "gp" ? "digital25" : "digital50"));
                 package.SetAttribute("app_type", "full");
                 if (category == "gp")
-                package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}");
+                package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}.pkg");
 
             var chunk_info = GP4.CreateElement("chunk_info");
                 chunk_info.SetAttribute("chunk_count", $"{chunk_count}");
@@ -329,6 +341,7 @@ namespace CSGP4POC {
                    if (FileWantsChunkyBeefStew(file_paths[path_index]))
                    file.SetAttribute("chunks", file_paths[path_index]);
                 */
+                if (!FileShouldBeExcluded(file_paths[path_index]))
                 files.AppendChild(file);
             }
 
@@ -344,73 +357,20 @@ namespace CSGP4POC {
                 foreach(string folder in Directory.GetDirectories(_dir)) {
                     subdir = GP4.CreateElement("dir");
                     subdir.SetAttribute("targ_name", folder.Substring(folder.LastIndexOf('\\') + 1));
+                    if (folder.Substring(folder.LastIndexOf('\\') + 1) != "about")
                     node.AppendChild(subdir);
                     if(Directory.GetDirectories(folder).Length > 0) AppendSubfolder(folder, subdir);
                     index++;
                 }
             }
 
-            void AppendFolder(string _dir) {
-                foreach(string folder in Directory.GetDirectories(_dir)) {
-                    dir = GP4.CreateElement("dir");
-                    dir.SetAttribute("targ_name", folder.Substring(folder.LastIndexOf('\\') + 1));
-                    rootdir.AppendChild(dir);
-                    if(Directory.GetDirectories(folder).Length > 0) AppendSubfolder(folder, dir);
-                    index++;
-                }
-            }
-
-            AppendFolder(APP_FOLDER);
-
-            /*
-            for(int path_index = 0; path_index < subdirectories.Length - 1; path_index++) {
+            foreach(string folder in Directory.GetDirectories(APP_FOLDER)) {
                 dir = GP4.CreateElement("dir");
-                var dir_name = subdirectories[path_index].Replace(args[0] + "\\", string.Empty);
-
-                // Build rootdir subdirectory element
-                if(dir_name.Contains('\\')) {
-                    W($"\nDirectory {dir_name} Has Subdirectory");
-
-                    var subdirectory_depth = 1;
-                    foreach(char c in dir_name) if (c == '\\') subdirectory_depth++;
-                    W($"Subdirectory_depth {subdirectory_depth}");
-                    
-                    string[] subdirectory_array = new string[subdirectory_depth];
-                    BufferArray = Encoding.UTF8.GetBytes(dir_name);
-
-
-                    int byteIndex = 0;
-                    StringBuilder Builder;
-                    for(int stringIndex = 0; stringIndex < subdirectory_array.Length - 1; stringIndex++) {
-                        Builder = new StringBuilder();
-
-                        while(BufferArray[byteIndex] != 0x5C)
-                            Builder.Append(Encoding.UTF8.GetString(new byte[] { BufferArray[byteIndex++] })); // Just Take A Byte, You Fussy Prick
-
-                        byteIndex++;
-                        subdirectory_array[stringIndex] = Builder.ToString();
-                        W($"New Subdir: {subdirectory_array[stringIndex]} (#{stringIndex}/{subdirectory_depth})");
-                    }
-
-                    for(int i = 0; i < subdirectory_depth; i++) {
-                        subdir = GP4.CreateElement("dir");
-                        subdir.SetAttribute("targ_name", dir_name.Substring(dir_name.LastIndexOf('\\') + 1));
-                        dir.AppendChild(subdir);
-                    }
-
-                    dir.SetAttribute("targ_name", dir_name.Remove(dir_name.LastIndexOf(@"\")));
-
-                    subdir = GP4.CreateElement("dir");
-                    subdir.SetAttribute("targ_name", dir_name.Substring(dir_name.LastIndexOf('\\') + 1));
-
-                    dir.AppendChild(subdir);
-                }
-                else
-                    dir.SetAttribute("targ_name", dir_name.Replace(args[0] + "\\", string.Empty));
-
+                dir.SetAttribute("targ_name", folder.Substring(folder.LastIndexOf('\\') + 1));
                 rootdir.AppendChild(dir);
+                if(Directory.GetDirectories(folder).Length > 0) AppendSubfolder(folder, dir);
+                index++;
             }
-            */
 
             ////////////////////\\\\\\\\\\\\\\\\\\\\
             ///--     Build .gp4 Structure     --\\\
@@ -435,7 +395,7 @@ namespace CSGP4POC {
             GP4.AppendChild(stamp);
 #endif
             // gee, I wonder what this does
-            GP4.Save($@"C:\Users\Blob\Desktop\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
+            GP4.Save($@"E:\PKG\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
 
             if (Output) Read();
         }
