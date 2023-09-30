@@ -45,8 +45,9 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.9.3 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
-                                          // Debug
+        static void Main(string[] args) { // ver 0.9.6 - Added ReadLine In Case Of No Args
+                                          // Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
+                                          
 #if DEBUG
             bool Output = false;
             void W(object o) { Console.WriteLine(o); Output = true; } // Only Wait On Close If Anything's Actually Been Written
@@ -54,7 +55,10 @@ namespace CSGP4POC {
 #endif
 
             string APP_FOLDER = args?[0];
-            if(APP_FOLDER == "") Environment.Exit(0);
+            if(APP_FOLDER == "") {
+                Console.WriteLine("No Gamedata Path Given, Please Enter One: ");
+                APP_FOLDER = Console.ReadLine();
+            }
 
             // Main Variables
             var TimeStamp = $"{DateTime.Now.GetDateTimeFormats()[78]}";
@@ -80,6 +84,7 @@ namespace CSGP4POC {
                 var filename = filepath.Remove(filepath.LastIndexOf(".")).Substring(filepath.LastIndexOf('\\') + 1);
 
                 string[] blacklist = new string[] {
+                  // Drunk Canadian Guy
                     $"sce_sys\\{filename}.dds",
                     "right.sprx",
                     "sce_sys/origin-deltainfo.dat",
@@ -87,7 +92,8 @@ namespace CSGP4POC {
                     "sce_sys/playgo-chunk.dat",
                     "sce_sys/playgo-chunk.sha",
                     "sce_sys/playgo-manifest.xml",
-                  // \/ (Al Azif)
+
+                  // Al Azif
                     "sce_sys/.digests",
                     "sce_sys/.entry_keys",
                     "sce_sys/.image_key",
@@ -109,7 +115,7 @@ namespace CSGP4POC {
                     "sce_sys/pic0.dds",
                     "sce_sys/pic1.dds"
                     //
-                    };
+                };
 
                 foreach(var blacklisted_file_or_folder in blacklist)
                 if(filepath.Contains(blacklisted_file_or_folder)) return true;
@@ -290,17 +296,16 @@ namespace CSGP4POC {
             } 
 
             ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\
-            ///--     Read Project Files And Directories     --\\\ this part could use some work
+            ///--     Read Project Files And Directories     --\\\
             ////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\
             DirectoryInfo directoryInfo = new DirectoryInfo(args[0]);
 
             FileInfo[] file_info = directoryInfo.GetFiles(".", SearchOption.AllDirectories); // How The Fuck Does This Find The Keystone?
-            DirectoryInfo[] directory_info = directoryInfo.GetDirectories(".", SearchOption.AllDirectories);
 
             file_paths = new string[file_info.Length];
-            for(int file_index = 0; file_index < file_info.Length - 1; file_index++) {
+            for(int file_index = 0; file_index < file_info.Length - 1; file_index++)
                 file_paths[file_index] = file_info[file_index].FullName;
-            }
+
 
             ///////////////////////\\\\\\\\\\\\\\\\\\\\\\
             ///--     Create Base .gp4 Elements     --\\\
@@ -326,7 +331,7 @@ namespace CSGP4POC {
                 package.SetAttribute("storage_type", (category == "gp" ? "digital25" : "digital50"));
                 package.SetAttribute("app_type", "full");
                 if (category == "gp")
-                package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}.pkg");
+                    package.SetAttribute("app_path", $"{content_id}-A{app_ver.Replace(".", "")}-V{version.Replace(".", "")}.pkg");
 
             var chunk_info = GP4.CreateElement("chunk_info");
                 chunk_info.SetAttribute("chunk_count", $"{chunk_count}");
@@ -338,7 +343,7 @@ namespace CSGP4POC {
                 chunk = GP4.CreateElement("chunk");
                 chunk.SetAttribute("id", $"{chunk_id}");
                 if(chunk_labels[chunk_id] == "") {
-                    W($"Chunk Label #{chunk_id} Was Null, I Hope This Fix Works For Every Game...");
+                  //W($"Chunk Label #{chunk_id} Was Null, I Hope This Fix Works For Every Game...");
                     chunk.SetAttribute("label", $"Chunk #{chunk_id}");
                 }
                 else
