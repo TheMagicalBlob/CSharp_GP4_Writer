@@ -11,10 +11,10 @@ using System.Data;
 
 namespace CSGP4POC {
     internal class Program {
-        // This Is My First Time Making An XML, I Might Do Dumb Shit
-
         // TODO: 
-        // - figure out pfs compression bs for certain file formats
+        // - figure out pfs compression / chunk bs for certain file formats
+        // - Figure Out What To Include And What Not To, And Implement It Without It Being Messy Af
+        // - Improve Readability, It's A Bit Messy
 
        /*
          
@@ -45,7 +45,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.9 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
+        static void Main(string[] args) { // ver 0.9.1 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
                                           // Debug
 #if DEBUG
             bool Output = false;
@@ -72,8 +72,14 @@ namespace CSGP4POC {
             var GP4 = new XmlDocument();
             var Declaration = GP4.CreateXmlDeclaration("1.1", "utf-8", "yes");
 
+
+            // Some Files Or Formats Aren't Supposed To Be Included. I Doubt I Got Lucky And My Game Happened To Have Them All, So I'm Probably Missing Shit
             bool FileShouldBeExcluded(string filepath) {
-                string[] blacklist = new string[] { "pic0.dds", "pic1.dds", "icon0_00.dds", "icon0.dds", "right.sprx", "origin-deltainfo.dat", "playgo-chunk", "playgo-manifest", "psreserved.dat" };
+
+                // To Exclude certain Files From sce_sys while not excluding them entirely
+                var filename = filepath.Remove(filepath.LastIndexOf(".")).Substring(filepath.LastIndexOf('\\') + 1);
+
+                string[] blacklist = new string[] { $"sce_sys\\{filename}.dds", "right.sprx", "origin-deltainfo.dat", "playgo-chunk", "playgo-manifest", "psreserved.dat" };
 
                 foreach(var blacklisted_file_or_folder in blacklist)
                 if(filepath.Contains(blacklisted_file_or_folder)) return true;
@@ -387,15 +393,13 @@ namespace CSGP4POC {
             volume.AppendChild(chunk_info);
             chunk_info.AppendChild(chunks);
             chunk_info.AppendChild(scenarios);
-            //var comment = GP4.CreateComment($"File Finished at {DateTime.Now.GetDateTimeFormats()[78]} By gengp4 Alternative (TheMagicalBlob)");
-            //GP4.AppendChild(comment);
-
 #if DEBUG
-            var stamp = GP4.CreateComment($"{DateTime.Parse(TimeStamp).Minute}:{DateTime.Parse(TimeStamp).Second}.{miliseconds} => {DateTime.Now.Minute}:{DateTime.Now.Second}.{DateTime.Now.Millisecond}");
+            var stamp = GP4.CreateComment($"gengp4.exe Alternative {DateTime.Parse(TimeStamp).Minute}:{DateTime.Parse(TimeStamp).Second}.{miliseconds} => {DateTime.Now.Minute}:{DateTime.Now.Second}.{DateTime.Now.Millisecond}");
             GP4.AppendChild(stamp);
 #endif
+
             // gee, I wonder what this does
-            GP4.Save($@"E:\PKG\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
+            GP4.Save($@"C:\Users\Blob\Desktop\{title_id}-{(category == "gd" ? "app" : "patch")}.gp4");
 
             if (Output) Read();
         }
