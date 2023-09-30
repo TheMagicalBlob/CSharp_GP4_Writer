@@ -45,7 +45,7 @@ namespace CSGP4POC {
         */
 
         // Pass Game Root As Arg
-        static void Main(string[] args) { // ver 0.9.1 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
+        static void Main(string[] args) { // ver 0.9.2 - Can Function In Certain Cases; I Don't Know Everything That Needs To Be Excluded. orbis-pub-cmd will error out on certain files or formats
                                           // Debug
 #if DEBUG
             bool Output = false;
@@ -64,7 +64,7 @@ namespace CSGP4POC {
             int chunk_count, scenario_count, default_id, index = 0;
             int[] scenario_types, scenario_chunk_range, initial_chunk_count;
             string app_ver = "", version = "", content_id, title_id = "CUSA12345", passcode = "00000000000000000000000000000000", category = "?";
-            string[] chunk_labels, parameter_labels, scenario_labels, file_paths, subdirectories,
+            string[] chunk_labels, parameter_labels, scenario_labels, file_paths,
             RequiredVariables = new string[] { "APP_VER", "CATEGORY", "CONTENT_ID", "TITLE_ID", "VERSION" };
 
             // Base Xml And XmlDeclaration
@@ -270,11 +270,6 @@ namespace CSGP4POC {
             file_paths = new string[file_info.Length];
             for(int file_index = 0; file_index < file_info.Length - 1; file_index++) {
                 file_paths[file_index] = file_info[file_index].FullName;
-            }
-
-            subdirectories = new string[directory_info.Length];
-            for(int folder_index = 0; folder_index < directory_info.Length - 1; folder_index++) {
-                subdirectories[folder_index] = directory_info[folder_index].FullName;
             }
 
             ///////////////////////\\\\\\\\\\\\\\\\\\\\\\
